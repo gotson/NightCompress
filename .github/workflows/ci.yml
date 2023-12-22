@@ -138,3 +138,11 @@ jobs:
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           arguments: jreleaserFullRelease
+      - name: JReleaser Release output
+        if: always() && inputs.perform_release
+        uses: actions/upload-artifact@v4
+        with:
+          name: jreleaser-release
+          path: |
+            build/jreleaser/trace.log
+            build/jreleaser/output.properties

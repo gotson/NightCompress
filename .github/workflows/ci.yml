@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - 'dependabot/**'
+  workflow_dispatch:
+    inputs:
+      perform_release:
+        description: 'Perform release'
+        default: false
+        type: boolean
+      bump:
+        description: 'Bump type'
+        required: false
+        default: 'next'
+        type: choice
+        options:
+          - 'next'
+          - 'major'
+          - 'minor'
+          - 'patch'
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+      fail-fast: false
+    name: Test ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+      - name: Install libraries for Linux/Mac
+        if: contains(matrix.os, 'ubuntu') || contains(matrix.os, 'macos')
+        run: brew install libarchive
+        env:
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - name: Gradle build
+        uses: gradle/gradle-build-action@v2
+        env:
+          LD_LIBRARY_PATH: /home/linuxbrew/.linuxbrew/lib:/opt/homebrew/opt/libarchive/lib
+          JAVA_LIBRARY_PATH: /usr/local/lib/:/opt/homebrew/opt/libarchive/lib
+        with:
+          arguments: build
+          gradle-home-cache-includes: |
+            caches
+            notifications
+            jdks
+      - name: Upload Unit Test Reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-reports-${{ matrix.os }}
+          path: '**/build/reports/tests/'
+
+  version:
+    runs-on: macos-latest
+    if: github.repository_owner == 'gotson' && github.ref == 'refs/heads/main'
+    outputs:
+      version_current: ${{ steps.versions.outputs.version_current }}
+      version_next: ${{ steps.versions.outputs.version_next }}
+      should_release: ${{ steps.versions.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+      - name: Install svu
+        run: brew install caarlos0/tap/svu
+      - name: Compute next version for release
+        if: inputs.perform_release
+        run: |
+          echo "VERSION_NEXT=`svu --pattern="v[0-9]*" --strip-prefix ${{ inputs.bump }}`" | tee -a $GITHUB_ENV
+          echo "VERSION_NEXT_SUFFIX=`svu --pattern="v[0-9]*" --strip-prefix ${{ inputs.bump }}`" | tee -a $GITHUB_ENV
+      - name: Compute next version for snapshot
+        if: inputs.perform_release != true
+        run: |
+          echo "VERSION_NEXT=`svu --pattern="v[0-9]*" --strip-prefix next`" | tee -a $GITHUB_ENV
+          echo "VERSION_NEXT_SUFFIX=`svu --pattern="v[0-9]*" --strip-prefix --pre-release SNAPSHOT next`" | tee -a $GITHUB_ENV
+      - name: Set Versions
+        id: versions
+        run: |
+          echo "version_current=`svu --pattern="v[0-9]*" --strip-prefix current`" >> $GITHUB_OUTPUT
+          echo "version_next=${{ env.VERSION_NEXT_SUFFIX }}" >> $GITHUB_OUTPUT
+          [[ `svu --pattern="v[0-9]*" --strip-prefix current` != ${{ env.VERSION_NEXT }} ]] && echo "should_release=true" >> $GITHUB_OUTPUT || echo
+
+  release:
+    needs: [ version, test ]
+    runs-on: ubuntu-latest
+    if: needs.version.outputs.should_release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Display versions
+        run: |
+          echo "Current version: ${{ needs.version.outputs.version_current }}, should release: ${{ needs.version.outputs.version_next }}"
+      - name: Update version in gradle.properties
+        run: echo "version=${{ needs.version.outputs.version_next }}" > gradle.properties
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'liberica'
+          java-version: '21'
+      - name: Nexus publish
+        uses: gradle/gradle-build-action@v2
+        env:
+          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_KEY }}
+          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_PASSPHRASE }}
+          ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.MAVENCENTRAL_USER }}
+          ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.MAVENCENTRAL_PASSWORD }}
+        with:
+          arguments: publishToSonatype closeAndReleaseSonatypeStagingRepository
+      - name: Release commit and push
+        uses: EndBug/add-and-commit@v9
+        if: inputs.perform_release
+        with:
+          message: 'chore(release): ${{ needs.version.outputs.version_next }} [skip ci]'
+          default_author: github_actions
+      - name: JReleaser full release
+        uses: gradle/gradle-build-action@v2
+        if: inputs.perform_release
+        env:
+          JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          arguments: jreleaserFullRelease

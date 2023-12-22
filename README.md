@@ -1,6 +1,6 @@
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/gotson/NightCompress/ci.yml?branch=main&style=flat-square)](https://github.com/gotson/NightCompress/actions/workflows/ci.yml)
-[![Maven Central](https://img.shields.io/maven-central/v/com.github.gotson.NightCompress/nightcompress?color=blue&style=flat-square)](https://search.maven.org/search?q=g:com.github.gotson.NightCompress)
-[![Sonatype Nexus (Snapshots)](https://img.shields.io/nexus/s/com.github.gotson.NightCompress/nightcompress?color=blue&label=maven-snapshot&server=https%3A%2F%2Foss.sonatype.org&style=flat-square)](https://oss.sonatype.org/content/repositories/snapshots/com/github/gotson/NightCompress/)
+[![Maven Central](https://img.shields.io/maven-central/v/com.github.gotson.nightcompress/nightcompress?color=blue&style=flat-square)](https://search.maven.org/search?q=g:com.github.gotson.nightCompress)
+[![Sonatype Nexus (Snapshots)](https://img.shields.io/nexus/s/com.github.gotson.nightcompress/nightcompress?color=blue&label=maven-snapshot&server=https%3A%2F%2Foss.sonatype.org&style=flat-square)](https://oss.sonatype.org/content/repositories/snapshots/com/github/gotson/nightcompress/)
 
 # NightCompress
 

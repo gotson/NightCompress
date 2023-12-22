@@ -57,3 +57,47 @@ runtimeOnly("com.github.gotson.nightcompress:nightcompress:{version}")
   <version>{version}</version>
 </dependency>
 ```
+
+## Usage
+
+### Check if the library is available
+
+```java
+try{
+  if(Archive.isAvailable()) {
+    // do stuff
+  }
+} catch(Exception e) {
+  // to be on the safe side
+}
+```
+
+### Extract from a `Path` to an `OutputStream`
+```java
+// Assuming you already have a Path pointing to the archive file and an OutputStream for writing to
+Archive archive = new Archive(path);
+for (ArchiveEntry entry : archive.getEntries()) {
+  try (InputStream is = archive.getInputStream(entry)) {
+    is.transferTo(outputStream);
+  }
+}
+```
+
+## Configuration
+
+NightCompress allows for some tuning using System Properties:
+
+- Options for `Archive#getInputStream(Path)`:
+  - `nightcompress.extractor.buffer-size`: accepts any positive integer. Defaults to `32 * 1024`.
+    - Sets the maximum size used for the dynamic byte buffer in the `PipedInputStream`.
+  - `nightcompress.extractor.use-executor`: accepts either `true` or `false`. Defaults to `true`.
+    - If `true`, it uses a cached thread pool for extracting the contents, which is generally faster.
+    - If `false`, it will create a new thread on each call. This may be slower, but may require slightly less memory.
+    - Options for tuning the thread pool:
+      - `nightcompress.extractor.max-threads`: accepts any positive integer. Defaults to `2^31`.
+        - Sets the maximum number of threads to be used in the pool. By default, there is no hard limit on the number
+          of threads, but they are only created when needed, so the maximum should not exceed the number of threads
+          calling this method at any given moment. Use this if you need to restrict the number of threads.
+      - `nightcompress.extractor.thread-keep-alive-seconds`: accepts any positive integer. Defaults to `5`.
+        - Sets the number of seconds a thread can be kept alive in the pool, waiting for a next extraction operation.
+          After that time, the thread may be stopped.

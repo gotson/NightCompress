@@ -46,11 +46,12 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+
       - name: Gradle build
         uses: gradle/gradle-build-action@v2
         env:
-          LD_LIBRARY_PATH: /home/linuxbrew/.linuxbrew/lib:/usr/local/opt/libarchive/lib
-          JAVA_LIBRARY_PATH: /usr/local/lib/:/usr/local/opt/libarchive/lib
+          LD_LIBRARY_PATH: /home/linuxbrew/.linuxbrew/lib
+          JAVA_LIBRARY_PATH: /usr/local/opt/libarchive/lib
         with:
           arguments: build
           gradle-home-cache-includes: |

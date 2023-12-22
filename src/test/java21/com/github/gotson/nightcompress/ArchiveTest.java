@@ -8,13 +8,11 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.URISyntaxException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 
-import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -36,19 +34,16 @@ public class ArchiveTest {
     @MethodSource("getTestData")
     void can_extract(TestData testData) throws Exception {
         try (var archive = new Archive(testData.archivePath())) {
-            List<Path> entries = Files.list(testData.contentPath()).toList();
-
-            for (var entry : archive.getEntries()) {
-                var testEntryPath = entries.stream().filter(path -> path.getFileName().toString().equals(entry.getName())).findAny().orElse(null);
-                assertThat(testEntryPath).isNotNull();
-
-                var testEntryBytes = Files.readAllBytes(testEntryPath);
+            List<ArchiveEntry> entries = archive.getEntries();
+            for (int i = 0; i < entries.size(); i++) {
+                var entry = entries.get(i);
 
                 try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
                     try (InputStream is = archive.getInputStream(entry)) {
                         is.transferTo(baos);
                     }
-                    assertThat(baos.toByteArray()).isEqualTo(testEntryBytes);
+                    var expectedContent = testData.entriesContent().get(i);
+                    assertThat(baos.toString()).isEqualTo(expectedContent);
                 }
             }
         }
@@ -56,14 +51,26 @@ public class ArchiveTest {
 
     List<TestData> getTestData() throws URISyntaxException {
         return List.of(
-            new TestData(getResourcePath("/rar5/rar5.rar"), getResourcePath("/rar5/rar5/"), asList(
-                new ArchiveEntry("FILE1.TXT", 7L, ZonedDateTime.of(2010, 11, 2, 23, 27, 28, 0, ZoneId.of("UTC")).toInstant()),
-                new ArchiveEntry("FILE2.TXT", 7L, ZonedDateTime.of(2010, 11, 2, 23, 27, 34, 0, ZoneId.of("UTC")).toInstant())
-            )),
-            new TestData(getResourcePath("/rar5/unicode.rar"), getResourcePath("/rar5/unicode/"), asList(
-                new ArchiveEntry("ウニコド.txt", 67L, ZonedDateTime.of(2020, 7, 28, 1, 49, 34, 0, ZoneId.of("UTC")).toInstant()),
-                new ArchiveEntry("新建文本文档.txt", 10L, ZonedDateTime.of(2020, 7, 28, 1, 50, 48, 0, ZoneId.of("UTC")).toInstant())
-            ))
+            new TestData(getResourcePath("/rar5/rar5.rar"),
+                List.of(
+                    new ArchiveEntry("FILE1.TXT", 7L, ZonedDateTime.of(2010, 11, 2, 23, 27, 28, 0, ZoneId.of("UTC")).toInstant()),
+                    new ArchiveEntry("FILE2.TXT", 7L, ZonedDateTime.of(2010, 11, 2, 23, 27, 34, 0, ZoneId.of("UTC")).toInstant())
+                ),
+                List.of(
+                    "file1\r\n",
+                    "file2\r\n"
+                )
+            ),
+            new TestData(getResourcePath("/rar5/unicode.rar"),
+                List.of(
+                    new ArchiveEntry("ウニコド.txt", 67L, ZonedDateTime.of(2020, 7, 28, 1, 49, 34, 0, ZoneId.of("UTC")).toInstant()),
+                    new ArchiveEntry("新建文本文档.txt", 10L, ZonedDateTime.of(2020, 7, 28, 1, 50, 48, 0, ZoneId.of("UTC")).toInstant())
+                ),
+                List.of(
+                    "このファイルにはUnicodeテキストが含まれています",
+                    "aaaaaaaaaa"
+                )
+            )
         );
     }
 

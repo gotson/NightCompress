@@ -57,12 +57,12 @@ public class ArchiveTest {
     List<TestData> getTestData() throws URISyntaxException {
         return List.of(
             new TestData(getResourcePath("/rar5/rar5.rar"), getResourcePath("/rar5/rar5/"), asList(
-                new ArchiveEntry("FILE1.TXT", 7L, ZonedDateTime.of(2010, 11, 3, 7, 27, 28, 0, ZoneId.systemDefault()).toInstant()),
-                new ArchiveEntry("FILE2.TXT", 7L, ZonedDateTime.of(2010, 11, 3, 7, 27, 34, 0, ZoneId.systemDefault()).toInstant())
+                new ArchiveEntry("FILE1.TXT", 7L, ZonedDateTime.of(2010, 11, 2, 23, 27, 28, 0, ZoneId.of("UTC")).toInstant()),
+                new ArchiveEntry("FILE2.TXT", 7L, ZonedDateTime.of(2010, 11, 2, 23, 27, 34, 0, ZoneId.of("UTC")).toInstant())
             )),
             new TestData(getResourcePath("/rar5/unicode.rar"), getResourcePath("/rar5/unicode/"), asList(
-                new ArchiveEntry("ウニコド.txt", 67L, ZonedDateTime.of(2020, 7, 28, 9, 49, 34, 0, ZoneId.systemDefault()).toInstant()),
-                new ArchiveEntry("新建文本文档.txt", 10L, ZonedDateTime.of(2020, 7, 28, 9, 50, 48, 0, ZoneId.systemDefault()).toInstant())
+                new ArchiveEntry("ウニコド.txt", 67L, ZonedDateTime.of(2020, 7, 28, 1, 49, 34, 0, ZoneId.of("UTC")).toInstant()),
+                new ArchiveEntry("新建文本文档.txt", 10L, ZonedDateTime.of(2020, 7, 28, 1, 50, 48, 0, ZoneId.of("UTC")).toInstant())
             ))
         );
     }

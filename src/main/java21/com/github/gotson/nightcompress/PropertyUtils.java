@@ -7,7 +7,7 @@ import java.util.Objects;
 import java.util.function.Function;
 
 class PropertyUtils {
-    private static final Logger LOGGER = LoggerFactory.getLogger(Archive.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(PropertyUtils.class);
 
     static <T> T getPropertyAs(String key, Function<String, T> function, T defaultValue) {
         Objects.requireNonNull(defaultValue, "default value must not be null");

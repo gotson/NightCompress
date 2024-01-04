@@ -1,12 +1,13 @@
 package com.github.gotson.nightcompress;
 
+import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
 
-public interface LibArchive extends Closeable {
-    List<ArchiveEntry> getEntries() throws LibArchiveException;
+interface LibArchive extends Closeable {
+    @Nullable
+    ArchiveEntry getNextEntry() throws LibArchiveException;
 
-    InputStream getInputStream(ArchiveEntry entry) throws IOException, LibArchiveException;
+    InputStream getInputStream() throws IOException, LibArchiveException;
 }

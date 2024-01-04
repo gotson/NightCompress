@@ -14,3 +14,4 @@ public final class EmptyInputStream extends InputStream {
         return -1;
     }
 }
+

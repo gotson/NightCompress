@@ -24,9 +24,33 @@ public class ArchiveTest {
 
     @ParameterizedTest
     @MethodSource("getTestData")
+    void can_get_entries_static(TestData testData) throws LibArchiveException {
+        assertThat(Archive.getEntries(testData.archivePath())).isEqualTo(testData.entries());
+    }
+
+    @ParameterizedTest
+    @MethodSource("getTestData")
     void can_get_entries(TestData testData) throws LibArchiveException {
         try (var archive = new Archive(testData.archivePath())) {
-            assertThat(archive.getEntries()).isEqualTo(testData.entries());
+            ArchiveEntry entry;
+            int i = 0;
+            while ((entry = archive.getNextEntry()) != null) {
+                assertThat(entry).isEqualTo(testData.entries().get(i++));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("getTestData")
+    void can_extract_static(TestData testData) throws Exception {
+        for (int i = 0; i < testData.entries().size(); i++) {
+            try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                try (InputStream is = Archive.getInputStream(testData.archivePath(), testData.entries().get(i).getName())) {
+                    is.transferTo(baos);
+                }
+                var expectedContent = testData.entriesContent().get(i);
+                assertThat(baos.toString()).isEqualTo(expectedContent);
+            }
         }
     }
 
@@ -34,15 +58,13 @@ public class ArchiveTest {
     @MethodSource("getTestData")
     void can_extract(TestData testData) throws Exception {
         try (var archive = new Archive(testData.archivePath())) {
-            List<ArchiveEntry> entries = archive.getEntries();
-            for (int i = 0; i < entries.size(); i++) {
-                var entry = entries.get(i);
-
+            int i = 0;
+            while (archive.getNextEntry() != null) {
                 try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                    try (InputStream is = archive.getInputStream(entry)) {
+                    try (InputStream is = archive.getInputStream()) {
                         is.transferTo(baos);
                     }
-                    var expectedContent = testData.entriesContent().get(i);
+                    var expectedContent = testData.entriesContent().get(i++);
                     assertThat(baos.toString()).isEqualTo(expectedContent);
                 }
             }

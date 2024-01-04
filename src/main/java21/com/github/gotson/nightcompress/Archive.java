@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.helpers.MessageFormatter;
 
+import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -69,58 +70,86 @@ public class Archive implements LibArchive {
     }
 
 
-    private final Path path;
+    private final ArchiveHandle handle;
+    private ArchiveEntry currentEntry;
 
-    private List<ArchiveEntry> entries;
+    public static List<ArchiveEntry> getEntries(Path path) throws LibArchiveException {
+        try (var archive = new Archive(path)) {
+            ArchiveEntry entry;
+            List<ArchiveEntry> entries = new ArrayList<>();
+            while ((entry = archive.getNextEntry()) != null) {
+                entries.add(entry);
+            }
+            return entries;
+        }
+    }
 
-    public Archive(Path path) {
-        this.path = path;
+    @Nullable
+    public static InputStream getInputStream(Path path, String entry) throws LibArchiveException, IOException {
+        var archive = new Archive(path);
+        ArchiveEntry e;
+        while ((e = archive.getNextEntry()) != null) {
+            if (e.getName().equals(entry)) return new ClosingInputStream(archive.getInputStream(), archive);
+        }
+        return null;
+    }
+
+    public Archive(Path path) throws LibArchiveException {
+        this.handle = new ArchiveHandle(path);
     }
 
     @Override
     public void close() {
+        handle.close();
+    }
+
+    @Nullable
+    @Override
+    public ArchiveEntry getNextEntry() throws LibArchiveException {
+        try (var arena = Arena.ofConfined()) {
+            var entryPtr = arena.allocate(C_POINTER);
+
+            var result = archive_h.archive_read_next_header(handle.segment, entryPtr);
+            if (result == archive_h.ARCHIVE_EOF()) {
+                currentEntry = null;
+                return null;
+            }
+            if (result != archive_h.ARCHIVE_OK()) {
+                var cause = archive_h.archive_error_string(handle.segment).getUtf8String(0);
+                LOGGER.error("Error getting entry: {}", cause);
+                throw new LibArchiveException(MessageFormatter.format("Error getting entry: {}", cause).getMessage());
+            }
+            var entrySegment = entryPtr.get(C_POINTER, 0);
+            currentEntry = new ArchiveEntry(
+                archive_h.archive_entry_pathname_utf8(entrySegment).getUtf8String(0),
+                archive_h.archive_entry_size_is_set(entrySegment) > 0 ? archive_h.archive_entry_size(entrySegment) : null,
+                archive_h.archive_entry_mtime_is_set(entrySegment) > 0 ? Instant.ofEpochSecond(archive_h.archive_entry_mtime(entrySegment)) : null
+            );
+        }
+        return currentEntry;
     }
 
     @Override
-    public List<ArchiveEntry> getEntries() throws LibArchiveException {
-        if (entries == null) retrieveEntries();
-        return entries;
-    }
-
-    @Override
-    public InputStream getInputStream(ArchiveEntry archiveEntry) throws IOException {
-        if (archiveEntry.getSize() != null && archiveEntry.getSize() <= 0) {
+    public InputStream getInputStream() throws IOException, LibArchiveException {
+        if (currentEntry == null) throw new LibArchiveException("Current entry is null");
+        if (currentEntry.getSize() != null && currentEntry.getSize() <= 0) {
             return new EmptyInputStream();
         }
 
         // Small optimization to prevent the creation of large buffers for very small files
         // Never allocate more than needed, but ensure the buffer will be at least 1-byte long
-        final int bufferSize = archiveEntry.getSize() != null ?
-            (int) Math.max(Math.min(archiveEntry.getSize(), BUFFER_SIZE), 1) : BUFFER_SIZE;
+        final int bufferSize = currentEntry.getSize() != null ?
+            (int) Math.max(Math.min(currentEntry.getSize(), BUFFER_SIZE), 1) : BUFFER_SIZE;
 
 
         final PipedInputStream in = new PipedInputStream(bufferSize);
         final PipedOutputStream out = new PipedOutputStream(in);
 
         Runnable r = () -> {
-            try (var arena = Arena.ofConfined(); var archive = new ArchiveHandle(path)) {
-                var entryPtr = arena.allocate(C_POINTER);
-
+            try (var arena = Arena.ofConfined()) {
+                var buffer = arena.allocateArray(C_CHAR, bufferSize);
                 while (true) {
-                    var result = archive_h.archive_read_next_header(archive.handle, entryPtr);
-                    if (result == archive_h.ARCHIVE_EOF()) break;
-                    if (result != archive_h.ARCHIVE_OK()) {
-                        var cause = archive_h.archive_error_string(archive.handle).getUtf8String(0);
-                        LOGGER.error("Error getting entry: {}", cause);
-                        throw new LibArchiveException(MessageFormatter.format("Error getting entry: {}", cause).getMessage());
-                    }
-                    var entry = entryPtr.get(C_POINTER, 0);
-                    if (archive_h.archive_entry_pathname_utf8(entry).getUtf8String(0).equals(archiveEntry.getName())) break;
-                }
-
-                var buffer = arena.allocateArray(C_CHAR, BUFFER_SIZE);
-                while (true) {
-                    var read = archive_h.archive_read_data(archive.handle, buffer, buffer.byteSize());
+                    var read = archive_h.archive_read_data(handle.segment, buffer, buffer.byteSize());
                     if (read < 0) throw new IOException("Error while extracting entry");
                     if (read == 0) break;
 
@@ -143,60 +172,31 @@ public class Archive implements LibArchive {
         return in;
     }
 
-    private void retrieveEntries() throws LibArchiveException {
-        try (var arena = Arena.ofConfined(); var archive = new ArchiveHandle(path)) {
-            var entryPtr = arena.allocate(C_POINTER);
-            entries = new ArrayList<>();
-
-            while (true) {
-                var result = archive_h.archive_read_next_header(archive.handle, entryPtr);
-                if (result == archive_h.ARCHIVE_EOF()) break;
-                if (result != archive_h.ARCHIVE_OK()) {
-                    var cause = archive_h.archive_error_string(archive.handle).getUtf8String(0);
-                    LOGGER.error("Error getting entry: {}", cause);
-                    throw new LibArchiveException(MessageFormatter.format("Error getting entry: {}", cause).getMessage());
-                }
-                var entry = entryPtr.get(C_POINTER, 0);
-                entries.add(new ArchiveEntry(
-                    archive_h.archive_entry_pathname_utf8(entry).getUtf8String(0),
-                    archive_h.archive_entry_size_is_set(entry) > 0 ? archive_h.archive_entry_size(entry) : null,
-                    archive_h.archive_entry_mtime_is_set(entry) > 0 ? Instant.ofEpochSecond(archive_h.archive_entry_mtime(entry)) : null
-                ));
-            }
-        }
-    }
-
     private static class ArchiveHandle implements Closeable {
-        final MemorySegment handle;
+        final MemorySegment segment;
 
         ArchiveHandle(Path path) throws LibArchiveException {
-            handle = getArchive(path);
-        }
-
-        private MemorySegment getArchive(Path path) throws LibArchiveException {
-            final MemorySegment archive;
             if (!loadLibrary()) throw new LibArchiveException("Library is not loaded");
 
             try (var arena = Arena.ofConfined()) {
-                archive = archive_h.archive_read_new();
-                archive_h.archive_read_support_compression_all(archive);
-                archive_h.archive_read_support_format_all(archive);
+                segment = archive_h.archive_read_new();
+                archive_h.archive_read_support_compression_all(segment);
+                archive_h.archive_read_support_format_all(segment);
 
                 MemorySegment pathSegment = arena.allocateUtf8String(path.toAbsolutePath().toString());
-                var result = archive_h.archive_read_open_filename(archive, pathSegment, BUFFER_SIZE);
+                var result = archive_h.archive_read_open_filename(segment, pathSegment, BUFFER_SIZE);
                 if (result != archive_h.ARCHIVE_OK()) {
                     close();
-                    var cause = archive_h.archive_error_string(archive).getUtf8String(0);
+                    var cause = archive_h.archive_error_string(segment).getUtf8String(0);
                     LOGGER.error("Could not open archive: {}. Cause: {}", path, cause);
                     throw new LibArchiveException(MessageFormatter.format("Could not open archive: {}. Cause: {}", path, cause).getMessage());
                 }
             }
-            return archive;
         }
 
         @Override
         public void close() {
-            archive_h.archive_read_free(handle);
+            archive_h.archive_read_free(segment);
         }
     }
 

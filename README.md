@@ -63,8 +63,8 @@ runtimeOnly("com.github.gotson.nightcompress:nightcompress:{version}")
 ### Check if the library is available
 
 ```java
-try{
-        if(Archive.isAvailable()){
+try {
+  if (Archive.isAvailable()) {
     // do stuff
   }
 } catch(Exception e) {
@@ -76,23 +76,15 @@ try{
 ```java
 // Assuming you already have a Path pointing to the archive file and an OutputStream for writing to
 Archive archive = new Archive(path);
-while(archive.
-
-getNextEntry() !=null){
-        try(
-InputStream is = archive.getInputStream()){
-        is.
-
-transferTo(outputStream);
+while (archive.getNextEntry() !=null) {
+  try (InputStream is = archive.getInputStream()) {
+    is.transferTo(outputStream);
   }
-          }
+}
 
 // Assuming you already know which entry you want to extract
-          try(
-InputStream is = Archive.getInputStream(path, entryName)){
-        is.
-
-transferTo(outputStream);
+try (InputStream is = Archive.getInputStream(path, entryName)) {
+  is.transferTo(outputStream);
 }
 ```
 

@@ -5,14 +5,14 @@
 # NightCompress
 
 A Java wrapper around [libarchive](https://libarchive.org/). NightCompress uses the newer Foreign Linker API
-available in JDK 21 to access native libraries.
+available in JDK 22 to access native libraries.
 
 ## How it works
 
 NightCompress is released as a multi-release JAR:
 
-- with Java < 21 as a no-op version that throws `UnsupportedOperationException` on any operation
-- with Java 21 all the features are available
+- with Java < 22 as a no-op version that throws `UnsupportedOperationException` on any operation
+- with Java 22 all the features are available
 - the JAR is not compatible with other Java versions, as the Foreign Linker APIs are still changing
 
 This lets you add the dependency in your project whatever the JDK used, and still enable the feature at runtime if the required JDK is used. 
@@ -21,10 +21,10 @@ This lets you add the dependency in your project whatever the JDK used, and stil
 
 In order for the JAR to run properly, you will need to:
 
-- Run Java 21 with the following options:
+- Run Java 22 with the following options:
 
 ```
---enable-preview --enable-native-access=ALL-UNNAMED
+--enable-native-access=ALL-UNNAMED
 ```
 
 - Make sure the path to the directory containing the native libraries is contained in the Java system

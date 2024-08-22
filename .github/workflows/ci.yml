@@ -45,7 +45,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: '22'
 
       - name: Gradle build
         uses: gradle/actions/setup-gradle@v3
@@ -114,8 +114,8 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'liberica'
-          java-version: '21'
+          distribution: 'temurin'
+          java-version: '22'
       - name: Nexus publish
         uses: gradle/actions/setup-gradle@v3
         env:

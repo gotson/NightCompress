@@ -39,13 +39,13 @@ In order for the JAR to run properly, you will need to:
 ### Gradle
 
 ```groovy
-runtimeOnly "com.github.gotson.nightcompress:nightcompress:{version}"
+implementation "com.github.gotson.nightcompress:nightcompress:{version}"
 ```
 
 ### Gradle (Kotlin DSL)
 
 ```kotlin
-runtimeOnly("com.github.gotson.nightcompress:nightcompress:{version}")
+implementation("com.github.gotson.nightcompress:nightcompress:{version}")
 ```
 
 ### Maven
@@ -106,3 +106,14 @@ NightCompress allows for some tuning using System Properties:
       - `nightcompress.extractor.thread-keep-alive-seconds`: accepts any positive integer. Defaults to `5`.
         - Sets the number of seconds a thread can be kept alive in the pool, waiting for a next extraction operation.
           After that time, the thread may be stopped.
+
+## Implementation notes
+
+The `panama` package bindings were generated using:
+- jextract 22
+- from the https://github.com/libarchive/libarchive/ repository, version 3.5.0
+- based on a synthetic header file:
+  ```
+  #include "archive.h"
+  #include "archive_entry.h"
+  ```

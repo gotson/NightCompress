@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static com.github.gotson.nightcompress.PropertyUtils.getPropertyAs;
 import static com.github.gotson.nightcompress.panama.archive_h.C_CHAR;
@@ -74,7 +75,12 @@ public class Archive implements LibArchive {
     private ArchiveEntry currentEntry;
 
     public static List<ArchiveEntry> getEntries(Path path) throws LibArchiveException {
-        try (var archive = new Archive(path)) {
+        return getEntries(path, Set.of(ReadSupportCompression.ALL), Set.of(ReadSupportFilter.ALL), Set.of(ReadSupportFormat.ALL));
+    }
+
+    public static List<ArchiveEntry> getEntries(Path path, Set<ReadSupportCompression> readSupportCompressions, Set<ReadSupportFilter> readSupportFilters,
+                                                Set<ReadSupportFormat> readSupportFormats) throws LibArchiveException {
+        try (var archive = new Archive(path, readSupportCompressions, readSupportFilters, readSupportFormats)) {
             ArchiveEntry entry;
             List<ArchiveEntry> entries = new ArrayList<>();
             while ((entry = archive.getNextEntry()) != null) {
@@ -86,7 +92,13 @@ public class Archive implements LibArchive {
 
     @Nullable
     public static InputStream getInputStream(Path path, String entry) throws LibArchiveException, IOException {
-        var archive = new Archive(path);
+        return getInputStream(path, Set.of(ReadSupportCompression.ALL), Set.of(ReadSupportFilter.ALL), Set.of(ReadSupportFormat.ALL), entry);
+    }
+
+    @Nullable
+    public static InputStream getInputStream(Path path, Set<ReadSupportCompression> readSupportCompressions, Set<ReadSupportFilter> readSupportFilters,
+                                             Set<ReadSupportFormat> readSupportFormats, String entry) throws LibArchiveException, IOException {
+        var archive = new Archive(path, readSupportCompressions, readSupportFilters, readSupportFormats);
         ArchiveEntry e;
         while ((e = archive.getNextEntry()) != null) {
             if (e.getName().equals(entry)) return new ClosingInputStream(archive.getInputStream(), archive);
@@ -95,7 +107,12 @@ public class Archive implements LibArchive {
     }
 
     public Archive(Path path) throws LibArchiveException {
-        this.handle = new ArchiveHandle(path);
+        this(path, Set.of(ReadSupportCompression.ALL), Set.of(ReadSupportFilter.ALL), Set.of(ReadSupportFormat.ALL));
+    }
+
+    public Archive(Path path, Set<ReadSupportCompression> readSupportCompressions, Set<ReadSupportFilter> readSupportFilters, Set<ReadSupportFormat> readSupportFormats)
+        throws LibArchiveException {
+        this.handle = new ArchiveHandle(path, readSupportCompressions, readSupportFilters, readSupportFormats);
     }
 
     @Override
@@ -175,13 +192,71 @@ public class Archive implements LibArchive {
     private static class ArchiveHandle implements Closeable {
         final MemorySegment segment;
 
-        ArchiveHandle(Path path) throws LibArchiveException {
+        ArchiveHandle(Path path, Set<ReadSupportCompression> readSupportCompressions, Set<ReadSupportFilter> readSupportFilters, Set<ReadSupportFormat> readSupportFormats)
+            throws LibArchiveException {
             if (!loadLibrary()) throw new LibArchiveException("Library is not loaded");
 
             try (var arena = Arena.ofConfined()) {
                 segment = archive_h.archive_read_new();
-                archive_h.archive_read_support_compression_all(segment);
-                archive_h.archive_read_support_format_all(segment);
+
+                for (ReadSupportCompression readSupportCompression : readSupportCompressions) {
+                    switch (readSupportCompression) {
+                        case ALL -> archive_h.archive_read_support_compression_all(segment);
+                        case BZIP2 -> archive_h.archive_read_support_compression_bzip2(segment);
+                        case COMPRESS -> archive_h.archive_read_support_compression_compress(segment);
+                        case GZIP -> archive_h.archive_read_support_compression_gzip(segment);
+                        case LZIP -> archive_h.archive_read_support_compression_lzip(segment);
+                        case LZMA -> archive_h.archive_read_support_compression_lzma(segment);
+                        case NONE -> archive_h.archive_read_support_compression_none(segment);
+                        case RPM -> archive_h.archive_read_support_compression_rpm(segment);
+                        case UU -> archive_h.archive_read_support_compression_uu(segment);
+                        case XZ -> archive_h.archive_read_support_compression_xz(segment);
+                    }
+                }
+
+                for (ReadSupportFilter readSupportFilter : readSupportFilters) {
+                    switch (readSupportFilter) {
+                        case ALL -> archive_h.archive_read_support_filter_all(segment);
+                        case BZIP2 -> archive_h.archive_read_support_filter_bzip2(segment);
+                        case COMPRESS -> archive_h.archive_read_support_filter_compress(segment);
+                        case GRZIP -> archive_h.archive_read_support_filter_grzip(segment);
+                        case GZIP -> archive_h.archive_read_support_filter_gzip(segment);
+                        case LRZIP -> archive_h.archive_read_support_filter_lrzip(segment);
+                        case LZ4 -> archive_h.archive_read_support_filter_lz4(segment);
+                        case LZIP -> archive_h.archive_read_support_filter_lzip(segment);
+                        case LZMA -> archive_h.archive_read_support_filter_lzma(segment);
+                        case LZOP -> archive_h.archive_read_support_filter_lzop(segment);
+                        case NONE -> archive_h.archive_read_support_filter_none(segment);
+                        case RPM -> archive_h.archive_read_support_filter_rpm(segment);
+                        case UU -> archive_h.archive_read_support_filter_uu(segment);
+                        case XZ -> archive_h.archive_read_support_filter_xz(segment);
+                        case ZSTD -> archive_h.archive_read_support_filter_zstd(segment);
+                    }
+                }
+
+                for (ReadSupportFormat readSupportFormat : readSupportFormats) {
+                    switch (readSupportFormat) {
+                        case ALL -> archive_h.archive_read_support_format_all(segment);
+                        case AR -> archive_h.archive_read_support_format_ar(segment);
+                        case CAB -> archive_h.archive_read_support_format_cab(segment);
+                        case CPIO -> archive_h.archive_read_support_format_cpio(segment);
+                        case EMPTY -> archive_h.archive_read_support_format_empty(segment);
+                        case GNUTAR -> archive_h.archive_read_support_format_gnutar(segment);
+                        case ISO9660 -> archive_h.archive_read_support_format_iso9660(segment);
+                        case LHA -> archive_h.archive_read_support_format_lha(segment);
+                        case MTREE -> archive_h.archive_read_support_format_mtree(segment);
+                        case RAR -> archive_h.archive_read_support_format_rar(segment);
+                        case RAR5 -> archive_h.archive_read_support_format_rar5(segment);
+                        case RAW -> archive_h.archive_read_support_format_raw(segment);
+                        case SEVEN_ZIP -> archive_h.archive_read_support_format_7zip(segment);
+                        case TAR -> archive_h.archive_read_support_format_tar(segment);
+                        case WARC -> archive_h.archive_read_support_format_warc(segment);
+                        case XAR -> archive_h.archive_read_support_format_xar(segment);
+                        case ZIP -> archive_h.archive_read_support_format_zip(segment);
+                        case ZIP_STREAMABLE -> archive_h.archive_read_support_format_zip_streamable(segment);
+                        case ZIP_SEEKABLE -> archive_h.archive_read_support_format_zip_seekable(segment);
+                    }
+                }
 
                 MemorySegment pathSegment = arena.allocateFrom(path.toAbsolutePath().toString());
                 var result = archive_h.archive_read_open_filename(segment, pathSegment, BUFFER_SIZE);

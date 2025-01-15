@@ -137,8 +137,16 @@ public class Archive implements LibArchive {
                 throw new LibArchiveException(MessageFormatter.format("Error getting entry: {}", cause).getMessage());
             }
             var entrySegment = entryPtr.get(C_POINTER, 0);
+
+            MemorySegment pathNameToUse;
+            MemorySegment pathNameUtf8 = archive_h.archive_entry_pathname_utf8(entrySegment);
+            if (pathNameUtf8.address() != MemorySegment.NULL.address()) {
+                pathNameToUse = pathNameUtf8;
+            } else {
+                pathNameToUse = archive_h.archive_entry_pathname(entrySegment);
+            }
             currentEntry = new ArchiveEntry(
-                archive_h.archive_entry_pathname_utf8(entrySegment).getString(0),
+                pathNameToUse.getString(0),
                 archive_h.archive_entry_size_is_set(entrySegment) > 0 ? archive_h.archive_entry_size(entrySegment) : null,
                 archive_h.archive_entry_mtime_is_set(entrySegment) > 0 ? Instant.ofEpochSecond(archive_h.archive_entry_mtime(entrySegment)) : null
             );

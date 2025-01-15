@@ -75,7 +75,7 @@ try {
 ```java
 // Assuming you already have a Path pointing to the archive file and an OutputStream for writing to
 Archive archive = new Archive(path);
-while (archive.getNextEntry() !=null) {
+while (archive.getNextEntry() != null) {
   try (InputStream is = archive.getInputStream()) {
     is.transferTo(outputStream);
   }
@@ -85,6 +85,21 @@ while (archive.getNextEntry() !=null) {
 try (InputStream is = Archive.getInputStream(path, entryName)) {
   is.transferTo(outputStream);
 }
+```
+
+### Specify Compression, Filter, and Format
+
+`libarchive` supports various [formats](https://github.com/libarchive/libarchive/wiki/LibarchiveFormats). You can specify the compression, filter, and formats you want to enable when calling the `Archive` constructor, or the static functions `Archive.getEntries` and `Archive.getInputStream`.
+
+By default, all will be enabled.
+
+This can cause issues if you have archives within archives though. For example, if you have a RAR file containing a ZIP file, when all is enabled, `libarchive` would produce entries of the inner ZIP file, instead of the ZIP file entry itself.
+
+```java
+// Enable RAR5 only
+Archive archive = new Archive(path, Set.of(ReadSupportCompression.NONE), Set.of(ReadSupportFilter.NONE), Set.of(ReadSupportFormat.RAR5));
+
+Archive.getInputStream(path, Set.of(ReadSupportCompression.NONE), Set.of(ReadSupportFilter.NONE), Set.of(ReadSupportFormat.RAR5), entryName)
 ```
 
 ## Configuration

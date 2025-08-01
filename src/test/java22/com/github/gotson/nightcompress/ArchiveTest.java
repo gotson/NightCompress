@@ -83,6 +83,17 @@ public class ArchiveTest {
                     "file2\r\n"
                 )
             ),
+            // archive with recovery record (-rr5)
+            new TestData(getResourcePath("/rar5/rr5.rar"),
+                List.of(
+                    new ArchiveEntry("FILE1.TXT", 7L, ZonedDateTime.of(2010, 11, 2, 23, 27, 28, 0, ZoneId.of("UTC")).toInstant()),
+                    new ArchiveEntry("FILE2.TXT", 7L, ZonedDateTime.of(2010, 11, 2, 23, 27, 34, 0, ZoneId.of("UTC")).toInstant())
+                ),
+                List.of(
+                    "file1\r\n",
+                    "file2\r\n"
+                )
+            ),
             new TestData(getResourcePath("/rar5/unicode.rar"),
                 List.of(
                     new ArchiveEntry("ウニコド.txt", 67L, ZonedDateTime.of(2020, 7, 28, 1, 49, 34, 0, ZoneId.of("UTC")).toInstant()),

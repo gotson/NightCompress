@@ -132,7 +132,11 @@ public class Archive implements LibArchive {
                 return null;
             }
             if (result != archive_h.ARCHIVE_OK()) {
-                var cause = archive_h.archive_error_string(handle.segment).getString(0);
+                MemorySegment errorStringPtr = archive_h.archive_error_string(handle.segment);
+                String cause = "unknown error cause";
+                if (errorStringPtr.address() != MemorySegment.NULL.address()) {
+                    cause = errorStringPtr.getString(0);
+                }
                 LOGGER.error("Error getting entry: {}", cause);
                 throw new LibArchiveException(MessageFormatter.format("Error getting entry: {}", cause).getMessage());
             }
@@ -270,7 +274,11 @@ public class Archive implements LibArchive {
                 var result = archive_h.archive_read_open_filename(segment, pathSegment, BUFFER_SIZE);
                 if (result != archive_h.ARCHIVE_OK()) {
                     close();
-                    var cause = archive_h.archive_error_string(segment).getString(0);
+                    MemorySegment errorStringPtr = archive_h.archive_error_string(segment);
+                    String cause = "";
+                    if (errorStringPtr.address() != MemorySegment.NULL.address()) {
+                        cause = errorStringPtr.getString(0);
+                    }
                     LOGGER.error("Could not open archive: {}. Cause: {}", path, cause);
                     throw new LibArchiveException(MessageFormatter.format("Could not open archive: {}. Cause: {}", path, cause).getMessage());
                 }

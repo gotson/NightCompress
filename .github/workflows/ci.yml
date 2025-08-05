@@ -11,6 +11,10 @@ on:
         description: 'Perform release'
         default: false
         type: boolean
+      release_notes:
+        description: Release notes (use \n for newlines)
+        type: string
+        required: false
       bump:
         description: 'Bump type'
         required: false
@@ -118,36 +122,52 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - name: Display versions
         run: |
           echo "Current version: ${{ needs.version.outputs.version_current }}, should release: ${{ needs.version.outputs.version_next }}"
+
       - name: Update version in gradle.properties
         run: echo "version=${{ needs.version.outputs.version_next }}" > gradle.properties
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '22'
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+
+      - name: Create release notes
+        run: |
+          mkdir release_notes
+          echo -e "${{ inputs.release_notes }}" >> release_notes/release_notes.md
+          echo "Release notes:"
+          cat release_notes/release_notes.md
+          echo ""
+
       - name: Nexus publish
-        run: ./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository
+        run: ./gradlew publishToSonatype closeAndReleaseStagingRepositories
         env:
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_KEY }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_PASSPHRASE }}
           ORG_GRADLE_PROJECT_sonatypeUsername: ${{ secrets.MAVENCENTRAL_USER }}
           ORG_GRADLE_PROJECT_sonatypePassword: ${{ secrets.MAVENCENTRAL_PASSWORD }}
+
       - name: Release commit and push
         uses: EndBug/add-and-commit@v9
         if: inputs.perform_release
         with:
           message: 'chore(release): ${{ needs.version.outputs.version_next }} [skip ci]'
           default_author: github_actions
+
       - name: JReleaser full release
         run: ./gradlew jreleaserFullRelease
         if: inputs.perform_release
         env:
           JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: JReleaser Release output
         if: always() && inputs.perform_release
         uses: actions/upload-artifact@v4

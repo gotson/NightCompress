@@ -76,7 +76,7 @@ jobs:
 
       - name: Upload Unit Test Reports
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: test-reports-${{ matrix.os }}
           path: '**/build/reports/tests/'
@@ -170,7 +170,7 @@ jobs:
 
       - name: JReleaser Release output
         if: always() && inputs.perform_release
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: jreleaser-release
           path: |
